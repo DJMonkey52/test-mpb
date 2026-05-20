@@ -374,6 +374,16 @@
             to { opacity: 0; transform: translateX(50px) scale(0.9); max-height: 0; margin-bottom: 0; padding-top: 0; padding-bottom: 0; border: none; }
         }
 
+        @keyframes emptyStateFadeOut {
+            from { opacity: 1; transform: scale(1); max-height: 200px; margin-bottom: 20px; }
+            to { opacity: 0; transform: scale(0.95); max-height: 0; margin-bottom: 0; padding: 0; }
+        }
+
+        @keyframes emptyStateFadeIn {
+            from { opacity: 0; transform: scale(0.95); max-height: 0; margin-bottom: 0; padding: 0; }
+            to { opacity: 1; transform: scale(1); max-height: 200px; margin-bottom: 20px; padding: 40px; }
+        }
+
         .action-item:hover {
             border-color: var(--accent);
             transform: translateX(6px);
@@ -473,6 +483,11 @@
             to { opacity: 1; transform: translateX(0); }
         }
 
+        @keyframes proofRemove {
+            from { opacity: 1; transform: translateX(0) scale(1); max-height: 60px; margin-bottom: 10px; padding: 8px 12px; }
+            to { opacity: 0; transform: translateX(-20px) scale(0.9); max-height: 0; margin-bottom: 0; padding-top: 0; padding-bottom: 0; }
+        }
+
         .proof-item input {
             flex: 1;
             padding: 10px 12px;
@@ -558,6 +573,11 @@
             color: var(--text-muted);
             background: rgba(10, 25, 40, 0.6);
             border-radius: 20px;
+            transition: all 0.3s ease;
+        }
+
+        body.light .empty-state {
+            background: rgba(0, 0, 0, 0.03);
         }
 
         .total-points-bar {
@@ -792,9 +812,27 @@
             document.getElementById('mainPage').style.display = 'block';
         }
 
+        function renderActionsList() {
+            const container = document.getElementById('actionsList');
+            const emptyDiv = document.getElementById('emptyActions');
+            
+            if (currentActions.length === 0) {
+                container.innerHTML = '';
+                emptyDiv.style.display = 'block';
+                emptyDiv.style.animation = 'emptyStateFadeIn 0.4s cubic-bezier(0.2, 0.9, 0.4, 1.1)';
+                updateTotalDisplay();
+                return;
+            }
+            
+            emptyDiv.style.display = 'none';
+            container.innerHTML = currentActions.map((a, i) => createActionHTML(a, i)).join('');
+            attachAllEvents();
+            updateTotalDisplay();
+        }
+
         function createActionHTML(a, idx) {
             return `
-                <div class="action-item" data-idx="${idx}">
+                <div class="action-item" data-idx="${idx}" style="animation: actionSlideIn 0.4s cubic-bezier(0.2, 0.9, 0.4, 1.1)">
                     <div class="action-header">
                         <div class="action-title"><i class="fas fa-tag"></i> ДЕЙСТВИЕ #${idx+1}</div>
                         <button class="remove-action" data-idx="${idx}"><i class="fas fa-trash"></i> Удалить</button>
@@ -833,33 +871,29 @@
 
         function addAction() {
             currentActions.push({ type: '', count: 1, proofs: [''] });
-            renumberAndRender();
-        }
-
-        function renumberAndRender() {
-            const container = document.getElementById('actionsList');
-            const emptyDiv = document.getElementById('emptyActions');
-            if (currentActions.length === 0) {
-                emptyDiv.style.display = 'block';
-                container.innerHTML = '';
-                updateTotalDisplay();
-                return;
-            }
-            emptyDiv.style.display = 'none';
-            container.innerHTML = currentActions.map((a, i) => createActionHTML(a, i)).join('');
-            attachAllEvents();
-            updateTotalDisplay();
+            renderActionsList();
         }
 
         function attachAllEvents() {
             const container = document.getElementById('actionsList');
-            container.querySelectorAll('.action-item').forEach((el, idx) => {
+            
+            container.querySelectorAll('.action-item').forEach((el) => {
+                const idx = parseInt(el.dataset.idx);
+                
                 const removeBtn = el.querySelector('.remove-action');
                 removeBtn.onclick = () => {
                     el.style.animation = 'actionRemove 0.3s ease forwards';
                     setTimeout(() => {
                         currentActions.splice(idx, 1);
-                        renumberAndRender();
+                        if (currentActions.length === 0) {
+                            const emptyDiv = document.getElementById('emptyActions');
+                            container.innerHTML = '';
+                            emptyDiv.style.display = 'block';
+                            emptyDiv.style.animation = 'emptyStateFadeIn 0.4s cubic-bezier(0.2, 0.9, 0.4, 1.1)';
+                            updateTotalDisplay();
+                        } else {
+                            renderActionsList();
+                        }
                     }, 300);
                 };
                 
@@ -883,7 +917,7 @@
                 addProofBtn.onclick = () => {
                     if (!currentActions[idx].proofs) currentActions[idx].proofs = [''];
                     currentActions[idx].proofs.push('');
-                    renumberAndRender();
+                    renderActionsList();
                 };
                 
                 el.querySelectorAll('.proof-input').forEach(inp => {
@@ -892,11 +926,16 @@
                 });
                 
                 el.querySelectorAll('.remove-proof').forEach(btn => {
-                    btn.onclick = () => {
+                    btn.onclick = (e) => {
+                        e.stopPropagation();
                         const pi = parseInt(btn.dataset.proof);
                         if (currentActions[idx].proofs.length > 1) {
-                            currentActions[idx].proofs.splice(pi, 1);
-                            renumberAndRender();
+                            const proofItem = btn.closest('.proof-item');
+                            proofItem.style.animation = 'proofRemove 0.25s ease forwards';
+                            setTimeout(() => {
+                                currentActions[idx].proofs.splice(pi, 1);
+                                renderActionsList();
+                            }, 250);
                         }
                     };
                 });
@@ -982,7 +1021,7 @@
 
         function resetForm() {
             currentActions = [];
-            renumberAndRender();
+            renderActionsList();
             if (currentType === 'weekly') {
                 const wName = document.getElementById('wName');
                 if (wName) wName.value = '';
@@ -1062,7 +1101,7 @@
                 actionsSection.style.display = 'block';
                 totalBar.style.display = 'flex';
             }
-            renumberAndRender();
+            renderActionsList();
         }
 
         document.getElementById('backBtn').onclick = showMainPage;
@@ -1091,7 +1130,6 @@
         }
         
         showMainPage();
-        renumberAndRender();
     </script>
 </body>
 </html>
